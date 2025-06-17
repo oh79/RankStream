@@ -297,41 +297,95 @@ def main():
             # Plotly를 사용한 꺾은선 차트
             fig = go.Figure()
             
+            # 스마트 라벨 위치 계산 함수
+            def get_smart_label_positions(class1_vals, class2_vals):
+                positions = []
+                for i, (val1, val2) in enumerate(zip(class1_vals, class2_vals)):
+                    diff = abs(val1 - val2)
+                    if diff < 25:  # 값이 가까우면 강제로 분리 (임계값 증가)
+                        if val1 > val2:  # 1분반이 더 높으면
+                            pos1, pos2 = val1 + 15, val2 - 15  # 1분반 위로, 2분반 아래로
+                        else:  # 2분반이 더 높으면
+                            pos1, pos2 = val1 - 15, val2 + 15  # 1분반 아래로, 2분반 위로
+                    else:  # 값이 충분히 떨어져 있으면 기본 위치
+                        if val1 > val2:
+                            pos1, pos2 = val1 + 8, val2 - 8
+                        else:
+                            pos1, pos2 = val1 - 8, val2 + 8
+                    positions.append((pos1, pos2))
+                return positions
+            
+            # 스마트 위치 계산
+            label_positions = get_smart_label_positions(chart_data["1분반"], chart_data["2분반"])
+            
+            # 1분반 텍스트 (빨간색)
+            fig.add_trace(go.Scatter(
+                x=chart_data.index,
+                y=[pos[0] for pos in label_positions],
+                mode='text',
+                name='1분반 점수',
+                text=[f'{val:.1f}' for val in chart_data["1분반"]],
+                textfont=dict(size=11, color='red', family='Arial Black'),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+            
+            # 2분반 텍스트 (파란색)
+            fig.add_trace(go.Scatter(
+                x=chart_data.index,
+                y=[pos[1] for pos in label_positions],
+                mode='text',
+                name='2분반 점수',
+                text=[f'{val:.1f}' for val in chart_data["2분반"]],
+                textfont=dict(size=11, color='blue', family='Arial Black'),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+            
             # 1분반 선 (빨간색)
             fig.add_trace(go.Scatter(
                 x=chart_data.index,
                 y=chart_data["1분반"],
-                mode='lines+markers+text',
+                mode='lines+markers',
                 name='1분반',
-                line=dict(color='red', width=3),
-                marker=dict(size=8),
-                text=[f'{val:.1f}' for val in chart_data["1분반"]],
-                textposition="bottom center",
-                textfont=dict(size=12, color='red')
+                line=dict(color='red', width=4),
+                marker=dict(size=10, color='red'),
+                hovertemplate='<b>1분반</b><br>%{x}: %{y:.1f}점<extra></extra>'
             ))
             
             # 2분반 선 (파란색)
             fig.add_trace(go.Scatter(
                 x=chart_data.index,
                 y=chart_data["2분반"],
-                mode='lines+markers+text',
+                mode='lines+markers',
                 name='2분반',
-                line=dict(color='blue', width=3),
-                marker=dict(size=8),
-                text=[f'{val:.1f}' for val in chart_data["2분반"]],
-                textposition="top center",
-                textfont=dict(size=12, color='blue')
+                line=dict(color='blue', width=4),
+                marker=dict(size=10, color='blue'),
+                hovertemplate='<b>2분반</b><br>%{x}: %{y:.1f}점<extra></extra>'
             ))
             
             # 차트 레이아웃 설정
             fig.update_layout(
-                title="분반별 점수 비교",
+                title=dict(
+                    text="분반별 점수 비교",
+                    font=dict(size=16, color='#2E86C1')
+                ),
                 xaxis_title="항목",
                 yaxis_title="점수",
-                yaxis=dict(range=[-5, 105]),
-                height=450,
+                yaxis=dict(range=[-25, 125]),
+                height=500,
                 showlegend=True,
-                margin=dict(t=80, b=80, l=60, r=60)
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                ),
+                margin=dict(t=100, b=80, l=60, r=60),
+                font=dict(size=12),
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)'
             )
             
             # 차트 표시
