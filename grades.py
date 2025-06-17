@@ -3,8 +3,51 @@
 자바 프로그래밍 성적 데이터 및 계산 함수
 """
 
-# 성적 데이터 딕셔너리 (학번: [중간고사, 중간EXTRA, 기말고사, 연습과제1, 연습과제2, 연습과제3, 연습과제4, 연습과제5])
-grades = {
+# 분반별 성적 데이터 딕셔너리
+# 데이터 형식: [중간고사, 중간EXTRA, 기말고사, 연습1, 연습2, 연습3, 연습4, 연습5]
+
+# 1분반 데이터
+grades_class1 = {
+    "0066": [78, 10, 44, 10, 9, 10, 9, 7],
+    "0201": [72, 10, 43, 10, 10, 10, 9, 10],
+    "0328": [29, 10, 32, 9, 10, 10, 9, 9],
+    "0481": [79, 10, 65, 0, 0, 9, 9, 10],
+    "0629": [26, 10, 22, 10, 10, 10, 10, 10],
+    "0718": [46, 10, 29, 0, 10, 9, 9, 10],
+    "0725": [38, 10, 56, 10, 10, 10, 10, 10],
+    "0793": [14, 10, 5, 0, 0, 9, 9, 0],
+    "0928": [44, 10, 10, 10, 10, 9, 0, 0],
+    "1005": [1, 10, 0, 0, 0, 0, 0, 0],
+    "1016": [9, 10, 15, 8, 6, 0, 0, 0],
+    "1216": [6, 0, 0, 3, 0, 8, 0, 0],
+    "1221": [46, 10, 0, 0, 0, 7, 0, 0],
+    "1234": [1, 10, 9, 10, 0, 0, 10, 10],
+    "1328": [51, 10, 60, 10, 10, 10, 10, 10],
+    "1804": [14, 10, 5, 10, 10, 10, 10, 10],
+    "2001": [39, 10, 21, 10, 10, 10, 10, 10],
+    "2048": [78, 10, 86, 10, 10, 9, 10, 10],
+    "3224": [47, 10, 35, 10, 10, 10, 10, 10],
+    "3378": [48, 10, 47, 10, 10, 10, 10, 10],
+    "3395": [20, 10, 36, 10, 10, 10, 10, 10],
+    "3473": [17, 10, 12, 6, 0, 0, 0, 0],
+    "3597": [21, 10, 11, 10, 10, 10, 9, 9],
+    "3711": [85, 10, 81, 10, 9, 10, 9, 8],
+    "5290": [29, 10, 33, 10, 10, 9, 10, 10],
+    "5667": [29, 10, 12, 10, 10, 10, 10, 10],
+    "5783": [76, 10, 68, 10, 10, 10, 9, 9],
+    "7856": [30, 1, 31, 0, 10, 0, 10, 10],
+    "7900": [92, 10, 44, 10, 10, 10, 10, 10],
+    "7953": [20, 10, 39, 10, 10, 10, 10, 10],
+    "8067": [24, 10, 31, 10, 10, 10, 10, 10],
+    "8283": [32, 10, 49, 10, 10, 10, 10, 10],
+    "8539": [16, 10, 22, 10, 10, 10, 8, 8],
+    "9081": [55, 10, 38, 10, 10, 10, 9, 10],
+    "9087": [55, 10, 38, 10, 9, 10, 9, 10],
+    "9128": [7, 10, 4, 10, 10, 10, 9, 9],
+}
+
+# 2분반 데이터 (기존 데이터)
+grades_class2 = {
     "0000": [56, 10, 52, 10, 10, 0, 10, 10],
     "0103": [93, 10, 84, 10, 10, 10, 10, 10],
     "0303": [20, 10, 14, 10, 10, 10, 10, 10],
@@ -43,6 +86,24 @@ grades = {
     "9243": [58, 10, 47, 10, 10, 10, 10, 10],
 }
 
+# 분반별 데이터 통합
+all_grades = {
+    "1분반": grades_class1,
+    "2분반": grades_class2
+}
+
+def get_grades_by_class(class_name):
+    """
+    분반별 성적 데이터를 반환
+    
+    Args:
+        class_name (str): "1분반" 또는 "2분반"
+    
+    Returns:
+        dict: 해당 분반의 성적 데이터
+    """
+    return all_grades.get(class_name, {})
+
 def calc_score(student_scores):
     """
     학생의 총점을 계산하는 함수
@@ -53,8 +114,13 @@ def calc_score(student_scores):
     Returns:
         float: 총점 (소수점 2자리)
     
+    가중치 (출석 10% 제외, 90%를 100%로 비례 확대):
+    - 중간고사 + 중간EXTRA: 30% → 33.33% (30/90*100)
+    - 기말고사: 40% → 44.44% (40/90*100)
+    - 연습과제: 20% → 22.22% (20/90*100)
+    
     계산 공식:
-    total = mid*3/11 + extra*3/11 + final*4/10 + sum(exercises)*2/5
+    total = (mid + mid_extra) * 33.33/100 + final * 44.44/100 + sum(exercises) * 22.22/100
     """
     try:
         if len(student_scores) != 8:
@@ -66,12 +132,18 @@ def calc_score(student_scores):
         final = student_scores[2]         # 기말고사
         exercises = student_scores[3:8]   # 연습과제 5개
         
-        # 총점 계산 (가중치 적용)
+        # 총점 계산 (출석 10% 제외, 나머지 90%를 100%로 비례 확대)
+        # 중간고사+중간EXTRA: 30% → 33.33%
+        mid_total_weight = 33.33
+        # 기말고사: 40% → 44.44%
+        final_weight = 44.44
+        # 연습과제: 20% → 22.22%
+        exercise_weight = 22.22
+        
         total = (
-            mid * 3/11 +              # 중간고사 (3/11)
-            mid_extra * 3/11 +        # 중간 EXTRA (3/11)  
-            final * 4/10 +            # 기말고사 (4/10)
-            sum(exercises) * 2/5      # 연습과제 합계 (2/5)
+            (mid + mid_extra) * mid_total_weight / 100 +     # 중간고사 + 중간EXTRA (33.33%)
+            final * final_weight / 100 +                     # 기말고사 (44.44%)
+            sum(exercises) * exercise_weight / 100           # 연습과제 합계 (22.22%)
         )
         
         return round(total, 2)
@@ -100,33 +172,47 @@ def get_student_data_dict(student_scores):
         "exercises": student_scores[3:8]
     }
 
-def get_all_scores():
+def get_all_scores(class_name):
     """
-    모든 학생의 총점을 계산하여 반환
+    특정 분반의 모든 학생 총점을 계산하여 반환
+    
+    Args:
+        class_name (str): "1분반" 또는 "2분반"
     
     Returns:
         dict: {학번: 총점} 형태의 딕셔너리
     """
     scores = {}
+    grades = get_grades_by_class(class_name)
     for student_id, scores_list in grades.items():
         scores[student_id] = calc_score(scores_list)
     return scores
 
-def get_student_rank(student_id):
+def get_student_rank(student_id, class_name):
     """
-    특정 학생의 등수를 계산
+    특정 분반에서 학생의 등수를 계산
     
     Args:
         student_id (str): 학번
+        class_name (str): "1분반" 또는 "2분반"
     
     Returns:
         int: 등수 (1부터 시작)
     """
-    all_scores = get_all_scores()
+    all_scores = get_all_scores(class_name)
     if student_id not in all_scores:
         return -1
     
     student_score = all_scores[student_id]
     # 자신보다 높은 점수의 개수 + 1이 등수
     rank = sum(1 for score in all_scores.values() if score > student_score) + 1
-    return rank 
+    return rank
+
+def get_available_classes():
+    """
+    사용 가능한 분반 목록 반환
+    
+    Returns:
+        list: 분반 이름 리스트
+    """
+    return list(all_grades.keys()) 
