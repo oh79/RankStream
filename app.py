@@ -5,6 +5,8 @@
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 from grades import (
     get_grades_by_class, 
     calc_score, 
@@ -89,17 +91,48 @@ def main():
         st.write("### 🔐 학번을 입력하세요")
         
         # 등록된 학번 리스트 보기 버튼
-        with st.expander(f"📝 {selected_class} 등록된 학번 목록 보기"):
-            st.write(f"**{selected_class} 전체 학번 목록 ({len(grades_data)}명)**")
-            
-            # 학번을 4개씩 한 줄에 표시
-            student_ids = list(grades_data.keys())
-            cols = st.columns(4)
-            
-            for i, student_id in enumerate(student_ids):
-                col_idx = i % 4
-                with cols[col_idx]:
-                    st.write(f"`{student_id}`")
+        # Expander 상태 관리
+        is_expanded = st.session_state.get('expander_open', False)
+        
+        # Expander 토글 감지를 위한 버튼
+        col_exp1, col_exp2 = st.columns([3, 1])
+        with col_exp1:
+            if st.button(f"📝 {selected_class} 등록된 학번 목록 {'닫기' if is_expanded else '보기'}", key=f"toggle_expander_{selected_class}"):
+                st.session_state['expander_open'] = not is_expanded
+                st.rerun()
+        
+        if is_expanded:
+            with st.container():
+                st.write(f"**{selected_class} 전체 학번 목록 ({len(grades_data)}명)**")
+                
+                # 학번 검색 기능
+                search_term = st.text_input("🔍 학번 검색", placeholder="검색할 학번 입력 (예: 00)", key=f"search_{selected_class}")
+                
+                student_ids = list(grades_data.keys())
+                
+                # 검색어가 있으면 필터링
+                if search_term:
+                    filtered_ids = [sid for sid in student_ids if search_term in sid]
+                    if filtered_ids:
+                        st.write(f"**검색 결과: {len(filtered_ids)}개**")
+                        student_ids = filtered_ids
+                    else:
+                        st.write("⚠️ 검색 결과가 없습니다.")
+                        student_ids = []
+                
+                # 학번을 4개씩 한 줄에 표시
+                if student_ids:
+                    cols = st.columns(4)
+                    
+                    for i, student_id in enumerate(student_ids):
+                        col_idx = i % 4
+                        with cols[col_idx]:
+                            # 클릭 가능한 버튼으로 표시
+                            if st.button(f"`{student_id}`", key=f"btn_{selected_class}_{student_id}", help="클릭하면 자동으로 성적을 조회합니다"):
+                                st.session_state[f'selected_student_id'] = student_id
+                                st.session_state['auto_search'] = True
+                                st.session_state['expander_open'] = False  # expander 닫기
+                                st.rerun()
         
         # 선택된 학번이 있으면 기본값으로 설정
         default_sid = st.session_state.get(f'selected_student_id', '')
@@ -111,8 +144,15 @@ def main():
             help="4자리 학번을 입력하고 조회 버튼을 클릭하세요"
         )
         
-        # 조회 버튼
-        if st.button("🔍 성적 조회", type="primary", use_container_width=True):
+        # 자동 검색 또는 수동 검색
+        search_triggered = st.session_state.get('auto_search', False) or st.button("🔍 성적 조회", type="primary", use_container_width=True)
+        
+        # 자동 검색 플래그 초기화
+        if st.session_state.get('auto_search', False):
+            st.session_state['auto_search'] = False
+        
+        # 조회 로직
+        if search_triggered:
             if sid and sid in grades_data:
                 # 성적 데이터 가져오기
                 student_scores = grades_data[sid]
@@ -220,85 +260,117 @@ def main():
                 # 실패 메시지
                 st.error(f"❌ {selected_class}에 존재하지 않는 학번입니다. 학번을 다시 확인해주세요.", icon="🚫")
                 st.info("💡 위의 '등록된 학번 목록 보기'에서 정확한 학번을 확인하세요!", icon="ℹ️")
+            else:
+                st.warning("⚠️ 학번을 입력해주세요.", icon="⚠️")
     
     # 분반별 통계 정보
     st.markdown("---")
-    st.write("### 📈 분반별 현황")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("#### 1분반")
-        class1_data = get_grades_by_class("1분반")
-        class1_scores = get_all_scores("1분반")
-        if class1_scores:
-            avg_score = sum(class1_scores.values()) / len(class1_scores)
-            max_score = max(class1_scores.values())
-            min_score = min(class1_scores.values())
-            
-            st.metric("학생 수", len(class1_data))
-            st.metric("평균 점수", f"{avg_score:.2f}점")
-            st.metric("최고 점수", f"{max_score:.2f}점")
-            st.metric("최저 점수", f"{min_score:.2f}점")
+    col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.write("#### 2분반")
+        st.write("### 📈 분반별 현황")
+        
+        # 분반별 데이터 수집
+        class1_data = get_grades_by_class("1분반")
+        class1_scores = get_all_scores("1분반")
         class2_data = get_grades_by_class("2분반")
         class2_scores = get_all_scores("2분반")
-        if class2_scores:
-            avg_score = sum(class2_scores.values()) / len(class2_scores)
-            max_score = max(class2_scores.values())
-            min_score = min(class2_scores.values())
+        
+        if class1_scores and class2_scores:
+            # 1분반 통계
+            class1_avg = sum(class1_scores.values()) / len(class1_scores)
+            class1_max = max(class1_scores.values())
+            class1_min = min(class1_scores.values())
             
-            st.metric("학생 수", len(class2_data))
-            st.metric("평균 점수", f"{avg_score:.2f}점")
-            st.metric("최고 점수", f"{max_score:.2f}점")
-            st.metric("최저 점수", f"{min_score:.2f}점")
+            # 2분반 통계
+            class2_avg = sum(class2_scores.values()) / len(class2_scores)
+            class2_max = max(class2_scores.values())
+            class2_min = min(class2_scores.values())
+            
+            # 차트 데이터 준비
+            chart_data = pd.DataFrame({
+                "1분반": [class1_avg, class1_max, class1_min],
+                "2분반": [class2_avg, class2_max, class2_min]
+            }, index=["평균 점수", "최고 점수", "최저 점수"])
+            
+            # Plotly를 사용한 꺾은선 차트
+            fig = go.Figure()
+            
+            # 1분반 선 (빨간색)
+            fig.add_trace(go.Scatter(
+                x=chart_data.index,
+                y=chart_data["1분반"],
+                mode='lines+markers+text',
+                name='1분반',
+                line=dict(color='red', width=3),
+                marker=dict(size=8),
+                text=[f'{val:.1f}' for val in chart_data["1분반"]],
+                textposition="bottom center",
+                textfont=dict(size=12, color='red')
+            ))
+            
+            # 2분반 선 (파란색)
+            fig.add_trace(go.Scatter(
+                x=chart_data.index,
+                y=chart_data["2분반"],
+                mode='lines+markers+text',
+                name='2분반',
+                line=dict(color='blue', width=3),
+                marker=dict(size=8),
+                text=[f'{val:.1f}' for val in chart_data["2분반"]],
+                textposition="top center",
+                textfont=dict(size=12, color='blue')
+            ))
+            
+            # 차트 레이아웃 설정
+            fig.update_layout(
+                title="분반별 점수 비교",
+                xaxis_title="항목",
+                yaxis_title="점수",
+                yaxis=dict(range=[-5, 105]),
+                height=450,
+                showlegend=True,
+                margin=dict(t=80, b=80, l=60, r=60)
+            )
+            
+            # 차트 표시
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 차트 설명
+            st.markdown("""
+            <div style='text-align: center; color: #7F8C8D; margin-top: 15px;'>
+                <small>📊 분반별 점수 분포 비교 차트 | 높이는 점수를 나타냅니다</small>
+            </div>
+            """, unsafe_allow_html=True)
     
-    # 구분선 및 업데이트 안내
+    # 구분선
     st.markdown("---")
-    
-    # 업데이트 안내 섹션
-    with st.expander("📋 성적 업데이트 방법"):
-        st.markdown("""
-        ### 성적 데이터 업데이트 방법
-        
-        1. **GitHub Repository**에서 `grades.py` 파일을 수정합니다
-        2. 변경사항을 **commit & push** 합니다
-        3. Streamlit Cloud에서 **자동으로 재배포**됩니다
-        4. 약 1-2분 후 새로운 성적이 반영됩니다
-        
-        #### grades.py 수정 예시:
-        ```python
-        # 1분반 데이터
-        grades_class1 = {
-            "0066": [78, 10, 44, 10, 9, 10, 9, 7],
-            "0201": [72, 10, 43, 10, 10, 10, 9, 10],
-            # 추가 학생 데이터...
-        }
-        
-        # 2분반 데이터
-        grades_class2 = {
-            "0000": [56, 10, 52, 10, 10, 0, 10, 10],
-            "0103": [93, 10, 84, 10, 10, 10, 10, 10],
-            # 추가 학생 데이터...
-        }
-        ```
-        
-        **데이터 형식**: [중간고사, 중간EXTRA, 기말고사, 연습1, 연습2, 연습3, 연습4, 연습5]
-        """)
     
     # 푸터 정보
-    st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
         <div style='text-align: center; color: #7F8C8D;'>
-            <small>🔒 개인정보는 로컬에서만 처리되며 저장되지 않습니다</small><br>
+            <small>🔒 개인정보는 사용자의 로컬에서만 처리되며 저장되지 않습니다</small><br>
             <small>📱 모바일에서도 이용 가능합니다</small><br>
             <small>💡 분반과 학번을 정확히 선택하여 성적을 확인하세요</small>
         </div>
         """, unsafe_allow_html=True)
+    
+    # 저작권 및 개발자 정보
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: #95A5A6; font-size: 12px;'>
+        <p><strong>© 2025 오승민 (SeungMin Oh)</strong></p>
+        <p>
+            📧 <a href="mailto:32202688@dankook.ac.kr" style="color: #3498DB;">32202688@dankook.ac.kr</a> | 
+            🐙 <a href="https://github.com/oh79" target="_blank" style="color: #3498DB;">github.com/oh79</a> | 
+            🌐 <a href="https://ip-dr.vercel.app" target="_blank" style="color: #3498DB;">ip-dr.vercel.app</a>
+        </p>
+        <p><small>자바 프로그래밍 성적 조회 시스템 | Developed with Streamlit</small></p>
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main() 
